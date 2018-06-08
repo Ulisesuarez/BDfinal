@@ -12,7 +12,11 @@ import javax.servlet.http.HttpServletRequest;
 import org.mvpigs.MedicalDB.domain.File;
 import org.mvpigs.MedicalDB.domain.FileStorageService;
 import org.mvpigs.MedicalDB.domain.UploadFileResponse;
+import org.mvpigs.MedicalDB.domain.User;
+import org.mvpigs.MedicalDB.repository.Apirepository;
 import org.mvpigs.MedicalDB.repository.FileRepository;
+import org.mvpigs.MedicalDB.repository.SearchRepository;
+import org.mvpigs.MedicalDB.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,13 +28,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
+@CrossOrigin(origins = "http://localhost:8081")
 @RestController()
 public class BackendController {
 
     private static final Logger LOG = LoggerFactory.getLogger(BackendController.class);
 
     public static final String HELLO_TEXT = "Hola";
+    public static User userSesion = null;
 
     @Autowired
     private FileRepository fileRepository;
@@ -52,11 +57,11 @@ public class BackendController {
     @CrossOrigin(origins = "http://localhost:8081")
     @RequestMapping(path = "/searchFile", method = {RequestMethod.POST, RequestMethod.GET} )
     @ResponseStatus(HttpStatus.CREATED)
-    public @ResponseBody ArrayList<File> searchFiles(@RequestParam String query) {
+    public @ResponseBody ArrayList<File> searchFiles(@RequestParam String query, @RequestParam String account_id) {
        query=query.replace('+', ' ');
        query="'"+query+"'";
        
-		ArrayList<File> filesList= fileRepository.findFilesByQuery(query) ;
+		ArrayList<File> filesList= fileRepository.findFilesByQuery(query, Integer.valueOf(account_id)) ;
 
         if(!filesList.isEmpty()) {LOG.info(filesList.get(0).toString() + " successfully find");}
         return filesList;
@@ -73,6 +78,36 @@ public class BackendController {
         fileRepository.refreshStudy();
         fileRepository.refresh();
         LOG.info(String.valueOf(file_id) + " successfully deleted");
+        return 0;
+    }
+    
+    @CrossOrigin("*")
+    @RequestMapping(path = "/updateName", method = {RequestMethod.POST, RequestMethod.GET} )
+    @ResponseStatus(HttpStatus.CREATED)
+    public @ResponseBody Integer updateName(@RequestParam String file_id, @RequestParam String name) {
+        fileRepository.updateFileName(name, Integer.valueOf(file_id)) ;
+        
+        fileRepository.refreshDirectory();
+        fileRepository.refreshDocument();
+        fileRepository.refreshCase();
+        fileRepository.refreshStudy();
+        fileRepository.refresh();
+        LOG.info(String.valueOf(file_id) + " name successfully changed");
+        return 0;
+    }
+    
+    @CrossOrigin("*")
+    @RequestMapping(path = "/updateDescription", method = {RequestMethod.POST, RequestMethod.GET} )
+    @ResponseStatus(HttpStatus.CREATED)
+    public @ResponseBody Integer updateDescription(@RequestParam String file_id, @RequestParam String description) {
+        fileRepository.updateFileDescription(description, Integer.valueOf(file_id)) ;
+        
+        fileRepository.refreshDirectory();
+        fileRepository.refreshDocument();
+        fileRepository.refreshCase();
+        fileRepository.refreshStudy();
+        fileRepository.refresh();
+        LOG.info(String.valueOf(file_id) + " description successfully changed");
         return 0;
     }
     @CrossOrigin(origins = "http://localhost:8081")
@@ -118,7 +153,59 @@ public class BackendController {
         LOG.info(file.toString() + " successfully saved into DB");
         return file.getFile_id();
     }
-  
+    
+    @Autowired
+    private UserRepository userRepository;
+    
+    @CrossOrigin(origins = "http://localhost:8081")
+    @RequestMapping(path = "/login", method = {RequestMethod.POST, RequestMethod.GET} )
+    @ResponseStatus(HttpStatus.CREATED)
+    public long Find_id(@RequestParam("username") String username) {
+    	LOG.info(username);
+        User user = userRepository.findByUsername(username);
+        long id=0;
+        if (user != null) {
+        	userSesion=user;
+        	LOG.info(user.toString());
+        	id=user.getAccount_id();
+        } else {
+        	id=0;
+        }
+		return id;
+
+    }
+    @CrossOrigin(origins = "http://localhost:8081")
+    @RequestMapping(path = "/User", method = {RequestMethod.POST, RequestMethod.GET} )
+    @ResponseStatus(HttpStatus.CREATED)
+    public User setUser(@RequestParam("userId") String userId) {
+    	
+		return userSesion;
+
+    }
+    
+    
+    private Apirepository  apiRepository;
+    
+    @Autowired
+    private SearchRepository searchRepository;
+
+    @CrossOrigin(origins = "http://localhost:8081")
+    @GetMapping("/drugSearch")
+    public String drugApiquery(@RequestParam("search") String search, @RequestParam("user_id") long userId, @RequestParam("search_id") long searchId) {
+    	apiRepository=new Apirepository(search);
+        String result = apiRepository.getResult();
+        searchRepository.addSearch(searchId,userId, result);
+        LOG.info("desdecontroller-------------------------------------------------------------------------");
+        LOG.info(result);
+        
+        return result;
+    }
+    @CrossOrigin(origins = "http://localhost:8081")
+    @GetMapping(path="/searchlastid")
+    public @ResponseBody Integer getMaxSearchId() {
+        LOG.info("getting de last search id");
+        return searchRepository.findMaxID();
+    }
     @Autowired
     private FileStorageService fileStorageService;
     

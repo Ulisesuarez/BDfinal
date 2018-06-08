@@ -2,6 +2,7 @@ package org.mvpigs.MedicalDB.repository;
 
 
 import org.mvpigs.MedicalDB.domain.File;
+import org.mvpigs.MedicalDB.domain.User;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
@@ -17,13 +18,11 @@ public interface FileRepository extends CrudRepository<File, Long> {
 	@Query(value = "SELECT file_id, name, description, type, color, deleted, deleted_at, created_at, updated_at, account_owner_id, username, email, ts_headline('spanish', description, q) AS headline, COUNT(*) OVER() AS total FROM full_text_search , to_tsquery('spanish',?1) q WHERE  deleted = false AND (tsv @@ q OR tsv_es @@ q AND type=?2);", nativeQuery = true)
     ArrayList<File> findByType(String query, String type);
 
-    List<File> findByUsername(@Param("username") String username);
-    
     @Query(value = "SELECT file_id, name, description, type, color, deleted, deleted_at, created_at, updated_at, account_owner_id, username, email FROM full_text_search , to_tsquery('spanish',' ') q WHERE  deleted = FALSE AND file_id=?1", nativeQuery = true)
     File findByFileId(long file_id);
     
-    @Query(value = "SELECT file_id, name, description, type, color, deleted, deleted_at, created_at, updated_at, account_owner_id, username, email, ts_headline('spanish', description, q) AS headline, COUNT(*) OVER() AS total FROM full_text_search , to_tsquery('spanish',?1) q WHERE  deleted = false AND  (tsv @@ q OR tsv_es @@ q);", nativeQuery = true)
-    ArrayList<File> findFilesByQuery(String query);
+    @Query(value = "SELECT file_id, name, description, type, color, deleted, deleted_at, created_at, updated_at, account_owner_id, username, email, ts_headline('spanish', description, q) AS headline, COUNT(*) OVER() AS total FROM full_text_search , to_tsquery('spanish',?1) q WHERE  deleted = false AND  (tsv @@ q OR tsv_es @@ q) AND account_owner_id = ?2 ;", nativeQuery = true)
+    ArrayList<File> findFilesByQuery(String query, Integer account_id);
     
     @Modifying
     @Transactional
@@ -53,6 +52,14 @@ public interface FileRepository extends CrudRepository<File, Long> {
     @Transactional
     @Query(value = "UPDATE file SET deleted=true WHERE file_id = ?1 ;", nativeQuery = true)
 	Integer deleteFile(long file_id);
+    @Modifying
+    @Transactional
+    @Query(value = "UPDATE file SET name=?1 WHERE file_id = ?2 ;", nativeQuery = true)
+	Integer updateFileName(String name, long file_id);
+    @Modifying
+    @Transactional
+    @Query(value = "UPDATE file SET description=?1 WHERE file_id = ?2 ;", nativeQuery = true)
+	Integer updateFileDescription(String description, long file_id);
     
     @Modifying
     @Transactional
